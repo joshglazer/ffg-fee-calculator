@@ -459,7 +459,6 @@
           <tr>
             <th>Child</th>
             <th>Schedule</th>
-            <th class="num">Base tuition</th>
             <th class="num" id="monthlyHead">Monthly tuition</th>
           </tr>
         </thead>
@@ -558,6 +557,17 @@
 
     const anyDiscount = ranked.some((kid) => kid.discountPct > 0);
 
+    let baseHead = document.getElementById('baseHead');
+    if (anyDiscount && !baseHead) {
+      baseHead = document.createElement('th');
+      baseHead.id = 'baseHead';
+      baseHead.className = 'num';
+      baseHead.textContent = 'Base tuition';
+      document.getElementById('monthlyHead').before(baseHead);
+    } else if (!anyDiscount && baseHead) {
+      baseHead.remove();
+    }
+
     let discountHead = document.getElementById('discountHead');
     if (anyDiscount && !discountHead) {
       discountHead = document.createElement('th');
@@ -567,13 +577,13 @@
     } else if (!anyDiscount && discountHead) {
       discountHead.remove();
     }
-    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 3;
+    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 2;
 
     resultBody.innerHTML = ranked.map((kid) => `
       <tr>
         <td class="child-cell">Child ${kid.index}</td>
         <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
-        <td class="num money" data-label="Base tuition">${currency(kid.base)}</td>
+        ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
         ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
           ? '<span class="pill full">Full price</span>'
           : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
