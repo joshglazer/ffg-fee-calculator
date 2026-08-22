@@ -255,6 +255,99 @@
     background-repeat: no-repeat;
   }
 
+  .addon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .addon-list:not(:empty) {
+    margin-bottom: 14px;
+  }
+
+  .addon-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+
+  .addon-entry-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .addon-entry-head select {
+    flex: 1;
+    background: var(--surface);
+  }
+
+  .remove-addon {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-faint);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .remove-addon:hover {
+    color: var(--accent-deep);
+    border-color: var(--accent-deep);
+  }
+
+  .addon-entry-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .addon-desc {
+    margin: 0;
+    flex: 1 1 220px;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+
+  .add-addon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    gap: 6px;
+    font-family: "Work Sans", sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent-deep);
+    background: transparent;
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 11px 14px;
+    cursor: pointer;
+  }
+
+  .add-addon-btn:hover:not(:disabled) {
+    border-color: var(--accent-deep);
+    background: var(--accent-soft);
+  }
+
+  .add-addon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .table-scroll {
     overflow-x: auto;
   }
@@ -290,6 +383,9 @@
 
   td.num, .money {
     font-variant-numeric: tabular-nums;
+  }
+
+  .money-strong {
     font-weight: 600;
   }
 
@@ -480,7 +576,7 @@
   <header>
     <div class="eyebrow">Fitness Fun &amp; Games &middot; Hampden Elementary/Middle #55</div>
     <h1>Afterschool Cost Calculator</h1>
-    <p>Estimate monthly tuition, sibling discounts, and registration fees for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
+    <p>Estimate monthly tuition, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
   </header>
 
   <div class="card">
@@ -518,6 +614,12 @@
   </div>
 
   <div class="card">
+    <h2>Add-ons</h2>
+    <div class="addon-list" id="addonList"></div>
+    <button type="button" class="add-addon-btn" id="addAddonBtn">+ Add an add-on</button>
+  </div>
+
+  <div class="card">
     <h2>Estimated cost</h2>
     <div class="table-scroll">
       <table>
@@ -532,7 +634,7 @@
         <tfoot>
           <tr>
             <td class="foot-label" id="footLabel" colspan="3">Total</td>
-            <td class="num foot-value" id="totalTuition" data-label="Tuition">&nbsp;</td>
+            <td class="num foot-value" id="totalTuition" data-label="Amount">&nbsp;</td>
           </tr>
         </tfoot>
       </table>
@@ -540,7 +642,7 @@
   </div>
 
   <footer>
-    <p><strong>Not included here:</strong> August supper week ($20/day), early-dismissal-day supper ($30/day), and occasional care ($10/hr) &mdash; ask the program directly if those apply to you. Fees may be tax-deductible as licensed childcare. No refunds.</p>
+    <p><strong>Not included here:</strong> occasional care ($10/hr, pre-registered, up to 4 days/month) &mdash; ask the program directly if that applies to you. Fees may be tax-deductible as licensed childcare. No refunds.</p>
   </footer>
 </div>
 
@@ -562,6 +664,97 @@
   const sharedScheduleRow = document.getElementById('sharedScheduleRow');
   const sharedDays = document.getElementById('sharedDays');
   const sharedPickup = document.getElementById('sharedPickup');
+  const addonListEl = document.getElementById('addonList');
+  const addAddonBtn = document.getElementById('addAddonBtn');
+  const REGISTRATION_RATES = [30, 20, 10];
+
+  const fullPricePill = (text) => `<span class="pill full">${text}</span>`;
+  const savePill = (text) => `<span class="pill save">${text}</span>`;
+
+  const ADDON_TYPES = {
+    halfDays: {
+      label: 'Early-dismissal half-days',
+      countLabel: 'Half-days',
+      rate: 30,
+      max: null,
+      desc: 'Supper on early-dismissal days, 11:30am&ndash;4:00pm &middot; $30/day &middot; sibling discount applies',
+      hasCount: true,
+      itemLabel: (n) => `Half-days &middot; ${n} &times; $30`,
+      perChild: (entry, kid) => {
+        const raw = entry.count * 30;
+        const amount = Math.round(raw * (1 - kid.discountPct / 100));
+        const pill = kid.discountPct === 0 ? fullPricePill('Full price') : savePill(`${kid.discountPct}% off`);
+        return { raw, amount, pill };
+      },
+    },
+    augustDays: {
+      label: 'August days (Aug 24&ndash;28)',
+      countLabel: 'Days',
+      rate: 20,
+      max: 5,
+      desc: 'Supper during the August program week &middot; $20/day &middot; sibling discount applies',
+      hasCount: true,
+      itemLabel: (n) => `August week &middot; ${n} &times; $20`,
+      perChild: (entry, kid) => {
+        const raw = entry.count * 20;
+        const amount = Math.round(raw * (1 - kid.discountPct / 100));
+        const pill = kid.discountPct === 0 ? fullPricePill('Full price') : savePill(`${kid.discountPct}% off`);
+        return { raw, amount, pill };
+      },
+    },
+    registration: {
+      label: 'Annual registration fee',
+      desc: '$30 for 1st child, $20 for 2nd, $10 for 3rd+',
+      hasCount: false,
+      itemLabel: () => 'Registration fee',
+      perChild: (entry, kid, rank) => {
+        const raw = REGISTRATION_RATES[0];
+        const amount = REGISTRATION_RATES[Math.min(rank, REGISTRATION_RATES.length - 1)];
+        const ordinal = rank === 0 ? '1st child' : rank === 1 ? '2nd child' : '3rd+ child';
+        const pill = rank === 0 ? fullPricePill(ordinal) : savePill(ordinal);
+        return { raw, amount, pill };
+      },
+    },
+  };
+
+  let addons = [];
+  let addonSeq = 0;
+
+  function availableTypesFor(currentType) {
+    return Object.keys(ADDON_TYPES).filter((t) => t === currentType || !addons.some((a) => a.type === t));
+  }
+
+  function nextUnusedType() {
+    return Object.keys(ADDON_TYPES).find((t) => !addons.some((a) => a.type === t));
+  }
+
+  function renderAddons() {
+    addonListEl.innerHTML = addons.map((entry) => {
+      const meta = ADDON_TYPES[entry.type];
+      const options = availableTypesFor(entry.type)
+        .map((t) => `<option value="${t}" ${t === entry.type ? 'selected' : ''}>${ADDON_TYPES[t].label}</option>`)
+        .join('');
+      const body = meta.hasCount
+        ? `<div class="field">
+            <span>${meta.countLabel}</span>
+            <input type="number" class="addon-count" min="0" ${meta.max ? `max="${meta.max}"` : ''} value="${entry.count}" inputmode="numeric">
+          </div>
+          <p class="addon-desc">${meta.desc}</p>`
+        : `<p class="addon-desc">${meta.desc}</p>`;
+
+      return `
+        <div class="addon-entry" data-id="${entry.id}">
+          <div class="addon-entry-head">
+            <select class="addon-type">${options}</select>
+            <button type="button" class="remove-addon" aria-label="Remove add-on">&times;</button>
+          </div>
+          <div class="addon-entry-body">${body}</div>
+        </div>
+      `;
+    }).join('');
+
+    addAddonBtn.disabled = addons.length >= Object.keys(ADDON_TYPES).length;
+  }
 
   function usingSharedSchedule() {
     const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
@@ -645,6 +838,7 @@
     const ranked = [...kids].sort((a, b) => b.base - a.base);
 
     ranked.forEach((kid, rank) => {
+      kid.rank = rank;
       if (rank === 0) { kid.discountPct = 0; }
       else if (rank === 1) { kid.discountPct = 20; }
       else { kid.discountPct = 30; }
@@ -675,23 +869,50 @@
     } else if (!anyDiscount && discountHead) {
       discountHead.remove();
     }
-    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 2;
+    const cols = anyDiscount ? 5 : 3;
+    document.getElementById('footLabel').colSpan = cols - 1;
 
-    resultBody.innerHTML = ranked.map((kid) => `
-      <tr>
-        <td class="child-cell">Child ${kid.index}</td>
-        <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
-        ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
-        ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
-          ? '<span class="pill full">Full price</span>'
-          : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
-        <td class="num money" data-label="Monthly tuition">${currency(kid.tuition)}</td>
-      </tr>
-    `).join('');
+    const activeAddons = addons.filter((entry) => ADDON_TYPES[entry.type].hasCount ? entry.count > 0 : true);
+
+    let addonTotal = 0;
+
+    const kidRows = ranked.map((kid) => {
+      const mainRow = `
+        <tr>
+          <td class="child-cell">Child ${kid.index}</td>
+          <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
+          ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
+          ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
+            ? '<span class="pill full">Full price</span>'
+            : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
+          <td class="num money money-strong" data-label="Monthly tuition">${currency(kid.tuition)}</td>
+        </tr>
+      `;
+
+      const subRows = activeAddons.map((entry) => {
+        const meta = ADDON_TYPES[entry.type];
+        const { raw, amount, pill } = meta.perChild(entry, kid, kid.rank);
+        addonTotal += amount;
+        return `
+          <tr class="addon-subrow">
+            <td class="child-cell"></td>
+            <td data-label="Item">${meta.itemLabel(entry.count)}</td>
+            ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(raw)}</td>` : ''}
+            ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
+            <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return mainRow + subRows;
+    }).join('');
+
+    resultBody.innerHTML = kidRows;
 
     const totalTuition = ranked.reduce((s, k) => s + k.tuition, 0);
+    const total = totalTuition + addonTotal;
 
-    document.getElementById('totalTuition').textContent = currency(totalTuition);
+    document.getElementById('totalTuition').textContent = currency(total);
   }
 
   kidCountInput.addEventListener('input', renderRows);
@@ -702,5 +923,47 @@
   });
   sharedScheduleRow.addEventListener('change', calculate);
 
+  addAddonBtn.addEventListener('click', () => {
+    const type = nextUnusedType();
+    if (!type) return;
+    addons.push({ id: ++addonSeq, type, count: 1 });
+    renderAddons();
+    calculate();
+  });
+
+  addonListEl.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('.remove-addon');
+    if (!removeBtn) return;
+    const id = parseInt(removeBtn.closest('.addon-entry').dataset.id, 10);
+    addons = addons.filter((a) => a.id !== id);
+    renderAddons();
+    calculate();
+  });
+
+  addonListEl.addEventListener('change', (e) => {
+    if (!e.target.classList.contains('addon-type')) return;
+    const entryEl = e.target.closest('.addon-entry');
+    const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
+    if (!entry) return;
+    entry.type = e.target.value;
+    entry.count = 1;
+    renderAddons();
+    calculate();
+  });
+
+  addonListEl.addEventListener('input', (e) => {
+    if (!e.target.classList.contains('addon-count')) return;
+    const entryEl = e.target.closest('.addon-entry');
+    const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
+    if (!entry) return;
+    const meta = ADDON_TYPES[entry.type];
+    let val = Math.max(0, parseInt(e.target.value, 10) || 0);
+    if (meta.max) val = Math.min(meta.max, val);
+    entry.count = val;
+    e.target.value = val;
+    calculate();
+  });
+
+  renderAddons();
   renderRows();
 </script>
