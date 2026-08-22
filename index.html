@@ -370,8 +370,6 @@
     .kid-row { grid-template-columns: 1fr; }
     .kid-row .kid-label { padding-bottom: 2px; }
 
-    .summary-strip { gap: 16px 24px; }
-
     /* Stack the results table into labeled cards instead of scrolling horizontally. */
     .table-scroll { overflow-x: visible; }
 
@@ -462,40 +460,21 @@
             <th>Child</th>
             <th>Schedule</th>
             <th class="num">Base tuition</th>
-            <th>Discount</th>
-            <th class="num">Monthly tuition</th>
-            <th class="num">Registration</th>
+            <th class="num" id="monthlyHead">Monthly tuition</th>
           </tr>
         </thead>
         <tbody id="resultBody"></tbody>
         <tfoot>
           <tr>
-            <td class="foot-label" colspan="4">Total</td>
+            <td class="foot-label" id="footLabel" colspan="3">Total</td>
             <td class="num foot-value" id="totalTuition" data-label="Tuition">&nbsp;</td>
-            <td class="num foot-value" id="totalReg" data-label="Registration">&nbsp;</td>
           </tr>
         </tfoot>
       </table>
     </div>
-
-    <div class="summary-strip">
-      <div class="summary-item">
-        <div class="label">Monthly tuition</div>
-        <div class="value" id="sumMonthly">$0</div>
-      </div>
-      <div class="summary-item">
-        <div class="label">Registration (one time)</div>
-        <div class="value" id="sumReg">$0</div>
-      </div>
-      <div class="summary-item hero">
-        <div class="label">Due first month</div>
-        <div class="value" id="sumFirst">$0</div>
-      </div>
-    </div>
   </div>
 
   <footer>
-    <p><strong>How discounts are ranked:</strong> the child with the lowest base tuition gets the biggest break &mdash; full price for the highest-tuition child, 20% off the next, and 30% off every child after that. Registration follows the same order: $30 / $20 / $10, with $10 for any additional child beyond the third.</p>
     <p><strong>Not included here:</strong> August supper week ($20/day), early-dismissal-day supper ($30/day), and occasional care ($10/hr) &mdash; ask the program directly if those apply to you. Fees may be tax-deductible as licensed childcare. No refunds.</p>
   </footer>
 </div>
@@ -569,35 +548,42 @@
     const ranked = [...kids].sort((a, b) => b.base - a.base);
 
     ranked.forEach((kid, rank) => {
-      if (rank === 0) { kid.discountPct = 0; kid.reg = 30; }
-      else if (rank === 1) { kid.discountPct = 20; kid.reg = 20; }
-      else { kid.discountPct = 30; kid.reg = 10; }
+      if (rank === 0) { kid.discountPct = 0; }
+      else if (rank === 1) { kid.discountPct = 20; }
+      else { kid.discountPct = 30; }
       kid.tuition = Math.round(kid.base * (1 - kid.discountPct / 100));
     });
 
     ranked.sort((a, b) => a.index - b.index);
+
+    const anyDiscount = ranked.some((kid) => kid.discountPct > 0);
+
+    let discountHead = document.getElementById('discountHead');
+    if (anyDiscount && !discountHead) {
+      discountHead = document.createElement('th');
+      discountHead.id = 'discountHead';
+      discountHead.textContent = 'Discount';
+      document.getElementById('monthlyHead').before(discountHead);
+    } else if (!anyDiscount && discountHead) {
+      discountHead.remove();
+    }
+    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 3;
 
     resultBody.innerHTML = ranked.map((kid) => `
       <tr>
         <td class="child-cell">Child ${kid.index}</td>
         <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
         <td class="num money" data-label="Base tuition">${currency(kid.base)}</td>
-        <td data-label="Discount">${kid.discountPct === 0
+        ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
           ? '<span class="pill full">Full price</span>'
-          : `<span class="pill save">${kid.discountPct}% off</span>`}</td>
+          : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
         <td class="num money" data-label="Monthly tuition">${currency(kid.tuition)}</td>
-        <td class="num money" data-label="Registration">${currency(kid.reg)}</td>
       </tr>
     `).join('');
 
     const totalTuition = ranked.reduce((s, k) => s + k.tuition, 0);
-    const totalReg = ranked.reduce((s, k) => s + k.reg, 0);
 
     document.getElementById('totalTuition').textContent = currency(totalTuition);
-    document.getElementById('totalReg').textContent = currency(totalReg);
-    document.getElementById('sumMonthly').textContent = currency(totalTuition);
-    document.getElementById('sumReg').textContent = currency(totalReg);
-    document.getElementById('sumFirst').textContent = currency(totalTuition + totalReg);
   }
 
   kidCountInput.addEventListener('input', renderRows);
