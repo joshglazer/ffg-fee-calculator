@@ -146,6 +146,43 @@
     color: var(--ink);
   }
 
+  .same-schedule-row {
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .same-schedule-row[hidden] {
+    display: none;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  #sharedScheduleRow {
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  #sharedScheduleRow[hidden] {
+    display: none;
+  }
+
   input[type="number"] {
     width: 76px;
     font-family: "Work Sans", sans-serif;
@@ -168,6 +205,10 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  .kid-rows[hidden] {
+    display: none;
   }
 
   .kid-row {
@@ -448,6 +489,31 @@
       <label for="kidCount">Number of kids enrolling</label>
       <input type="number" id="kidCount" min="1" max="8" value="1" inputmode="numeric">
     </div>
+    <div class="same-schedule-row" id="sameScheduleRow" hidden>
+      <label class="checkbox-label">
+        <input type="checkbox" id="sameSchedule" checked>
+        All children have the same schedule
+      </label>
+    </div>
+    <div class="kid-row" id="sharedScheduleRow" hidden>
+      <div class="kid-label">For all kids</div>
+      <div class="field">
+        <span>Days / week</span>
+        <select id="sharedDays">
+          <option value="2">2 days</option>
+          <option value="3">3 days</option>
+          <option value="4">4 days</option>
+          <option value="5" selected>5 days</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>Pickup time</span>
+        <select id="sharedPickup">
+          <option value="430">Until 4:30pm</option>
+          <option value="600" selected>Until 6:00pm</option>
+        </select>
+      </div>
+    </div>
     <div class="kid-rows" id="kidRows"></div>
   </div>
 
@@ -491,6 +557,24 @@
   const kidCountInput = document.getElementById('kidCount');
   const kidRowsEl = document.getElementById('kidRows');
   const resultBody = document.getElementById('resultBody');
+  const sameScheduleRow = document.getElementById('sameScheduleRow');
+  const sameScheduleCheckbox = document.getElementById('sameSchedule');
+  const sharedScheduleRow = document.getElementById('sharedScheduleRow');
+  const sharedDays = document.getElementById('sharedDays');
+  const sharedPickup = document.getElementById('sharedPickup');
+
+  function usingSharedSchedule() {
+    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    return count > 1 && sameScheduleCheckbox.checked;
+  }
+
+  function updateScheduleMode() {
+    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    sameScheduleRow.hidden = count <= 1;
+    const shared = usingSharedSchedule();
+    sharedScheduleRow.hidden = !shared;
+    kidRowsEl.hidden = shared;
+  }
 
   function renderRows() {
     const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
@@ -528,21 +612,35 @@
         kidRowsEl.appendChild(row);
       }
     }
+    updateScheduleMode();
     calculate();
   }
 
   function calculate() {
-    const rows = [...kidRowsEl.querySelectorAll('.kid-row')];
-    const kids = rows.map((row) => {
-      const days = parseInt(row.querySelector('.days').value, 10);
-      const pickup = row.querySelector('.pickup').value;
+    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    let kids;
+    if (usingSharedSchedule()) {
+      const days = parseInt(sharedDays.value, 10);
+      const pickup = sharedPickup.value;
       const base = TUITION[days][pickup];
-      return {
-        index: parseInt(row.dataset.index, 10),
-        days, pickup, base,
-        pickupLabel: pickup === '430' ? 'Until 4:30' : 'Until 6:00',
-      };
-    });
+      const pickupLabel = pickup === '430' ? 'Until 4:30' : 'Until 6:00';
+      kids = Array.from({ length: count }, (_, i) => ({
+        index: i + 1,
+        days, pickup, base, pickupLabel,
+      }));
+    } else {
+      const rows = [...kidRowsEl.querySelectorAll('.kid-row')];
+      kids = rows.map((row) => {
+        const days = parseInt(row.querySelector('.days').value, 10);
+        const pickup = row.querySelector('.pickup').value;
+        const base = TUITION[days][pickup];
+        return {
+          index: parseInt(row.dataset.index, 10),
+          days, pickup, base,
+          pickupLabel: pickup === '430' ? 'Until 4:30' : 'Until 6:00',
+        };
+      });
+    }
 
     const ranked = [...kids].sort((a, b) => b.base - a.base);
 
@@ -598,6 +696,11 @@
 
   kidCountInput.addEventListener('input', renderRows);
   kidRowsEl.addEventListener('change', calculate);
+  sameScheduleCheckbox.addEventListener('change', () => {
+    updateScheduleMode();
+    calculate();
+  });
+  sharedScheduleRow.addEventListener('change', calculate);
 
   renderRows();
 </script>
