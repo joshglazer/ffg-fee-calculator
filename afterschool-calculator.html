@@ -1,0 +1,519 @@
+<title>Hampden Afterschool Calculator</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #EDEFE9;
+    --surface: #FFFFFF;
+    --surface-2: #F6F6F1;
+    --ink: #16213A;
+    --ink-soft: #566073;
+    --ink-faint: #8892A0;
+    --accent: #C2792F;
+    --accent-deep: #8F5A1F;
+    --accent-soft: #F4E3CC;
+    --line: #DAD9CE;
+    --savings: #4C7A5E;
+    --savings-soft: #E1EBE4;
+    --shadow: 0 1px 2px rgba(22,33,58,0.06), 0 8px 24px -12px rgba(22,33,58,0.18);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121826;
+      --surface: #1B2340;
+      --surface-2: #212A4C;
+      --ink: #ECEAE1;
+      --ink-soft: #A9B0C4;
+      --ink-faint: #74809D;
+      --accent: #E3A052;
+      --accent-deep: #F0B876;
+      --accent-soft: #3A3120;
+      --line: #2B3350;
+      --savings: #7FBF9B;
+      --savings-soft: #1F3327;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #121826;
+    --surface: #1B2340;
+    --surface-2: #212A4C;
+    --ink: #ECEAE1;
+    --ink-soft: #A9B0C4;
+    --ink-faint: #74809D;
+    --accent: #E3A052;
+    --accent-deep: #F0B876;
+    --accent-soft: #3A3120;
+    --line: #2B3350;
+    --savings: #7FBF9B;
+    --savings-soft: #1F3327;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 20px 80px;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .eyebrow {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent-deep);
+  }
+
+  header h1 {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-weight: 700;
+    font-size: clamp(28px, 5vw, 40px);
+    letter-spacing: 0.01em;
+    margin: 6px 0 8px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  header p {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 15.5px;
+    line-height: 1.55;
+    max-width: 60ch;
+  }
+
+  header p a {
+    color: var(--accent-deep);
+    text-decoration-color: var(--line);
+    text-underline-offset: 2px;
+  }
+
+  header p a:hover {
+    text-decoration-color: var(--accent-deep);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 26px 26px 28px;
+  }
+
+  .card h2 {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 18px;
+  }
+
+  .kid-count-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .kid-count-row label {
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  input[type="number"] {
+    width: 76px;
+    font-family: "Work Sans", sans-serif;
+    font-variant-numeric: tabular-nums;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+
+  input[type="number"]:focus, select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .kid-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .kid-row {
+    display: grid;
+    grid-template-columns: 88px 1fr 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .kid-row .kid-label {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field span {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  select {
+    font-family: "Work Sans", sans-serif;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 10px;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--ink-faint) 50%), linear-gradient(135deg, var(--ink-faint) 50%, transparent 50%);
+    background-position: calc(100% - 16px) center, calc(100% - 11px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 560px;
+  }
+
+  thead th {
+    text-align: left;
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0 10px 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  thead th.num, td.num { text-align: right; }
+
+  tbody td {
+    padding: 12px 10px 12px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14.5px;
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.num, .money {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .child-cell {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-weight: 600;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .pill.full {
+    background: var(--surface-2);
+    color: var(--ink-soft);
+  }
+
+  .pill.save {
+    background: var(--savings-soft);
+    color: var(--savings);
+  }
+
+  tfoot td {
+    padding-top: 16px;
+    border-top: 2px solid var(--ink);
+    border-bottom: none;
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+  }
+
+  tfoot .foot-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  tfoot .foot-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .summary-item .label {
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  .summary-item .value {
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-deep);
+  }
+
+  .summary-item.hero .value { color: var(--accent); font-size: 28px; }
+
+  footer {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    line-height: 1.6;
+    padding: 4px 4px 0;
+  }
+
+  footer strong { color: var(--ink-soft); }
+
+  @media (max-width: 520px) {
+    .kid-row { grid-template-columns: 1fr; }
+    .kid-row .kid-label { padding-bottom: 2px; }
+  }
+</style>
+
+<div class="page">
+  <header>
+    <div class="eyebrow">Fitness Fun &amp; Games &middot; Hampden Elementary/Middle #55</div>
+    <h1>Afterschool Cost Calculator</h1>
+    <p>Estimate monthly tuition, sibling discounts, and registration fees for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
+  </header>
+
+  <div class="card">
+    <h2>Your family</h2>
+    <div class="kid-count-row">
+      <label for="kidCount">Number of kids enrolling</label>
+      <input type="number" id="kidCount" min="1" max="8" value="1" inputmode="numeric">
+    </div>
+    <div class="kid-rows" id="kidRows"></div>
+  </div>
+
+  <div class="card">
+    <h2>Estimated cost</h2>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Child</th>
+            <th>Schedule</th>
+            <th class="num">Base tuition</th>
+            <th>Discount</th>
+            <th class="num">Monthly tuition</th>
+            <th class="num">Registration</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody"></tbody>
+        <tfoot>
+          <tr>
+            <td class="foot-label" colspan="4">Total</td>
+            <td class="num foot-value" id="totalTuition">&nbsp;</td>
+            <td class="num foot-value" id="totalReg">&nbsp;</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="summary-strip">
+      <div class="summary-item">
+        <div class="label">Monthly tuition</div>
+        <div class="value" id="sumMonthly">$0</div>
+      </div>
+      <div class="summary-item">
+        <div class="label">Registration (one time)</div>
+        <div class="value" id="sumReg">$0</div>
+      </div>
+      <div class="summary-item hero">
+        <div class="label">Due first month</div>
+        <div class="value" id="sumFirst">$0</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p><strong>How discounts are ranked:</strong> the child with the lowest base tuition gets the biggest break &mdash; full price for the highest-tuition child, 20% off the next, and 30% off every child after that. Registration follows the same order: $30 / $20 / $10, with $10 for any additional child beyond the third.</p>
+    <p><strong>Not included here:</strong> August supper week ($20/day), early-dismissal-day supper ($30/day), and occasional care ($10/hr) &mdash; ask the program directly if those apply to you. Fees may be tax-deductible as licensed childcare. No refunds.</p>
+  </footer>
+</div>
+
+<script>
+  const TUITION = {
+    2: { 430: 130, 600: 185 },
+    3: { 430: 180, 600: 235 },
+    4: { 430: 220, 600: 290 },
+    5: { 430: 250, 600: 335 },
+  };
+
+  const currency = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  const kidCountInput = document.getElementById('kidCount');
+  const kidRowsEl = document.getElementById('kidRows');
+  const resultBody = document.getElementById('resultBody');
+
+  function renderRows() {
+    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    kidCountInput.value = count;
+
+    const existing = kidRowsEl.querySelectorAll('.kid-row').length;
+    if (count < existing) {
+      for (let i = existing; i > count; i--) {
+        kidRowsEl.removeChild(kidRowsEl.lastElementChild);
+      }
+    } else if (count > existing) {
+      for (let i = existing + 1; i <= count; i++) {
+        const row = document.createElement('div');
+        row.className = 'kid-row';
+        row.dataset.index = i;
+        row.innerHTML = `
+          <div class="kid-label">Child ${i}</div>
+          <div class="field">
+            <span>Days / week</span>
+            <select class="days">
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+              <option value="4">4 days</option>
+              <option value="5" selected>5 days</option>
+            </select>
+          </div>
+          <div class="field">
+            <span>Pickup time</span>
+            <select class="pickup">
+              <option value="430">Until 4:30pm</option>
+              <option value="600" selected>Until 6:00pm</option>
+            </select>
+          </div>
+        `;
+        kidRowsEl.appendChild(row);
+      }
+    }
+    calculate();
+  }
+
+  function calculate() {
+    const rows = [...kidRowsEl.querySelectorAll('.kid-row')];
+    const kids = rows.map((row) => {
+      const days = parseInt(row.querySelector('.days').value, 10);
+      const pickup = row.querySelector('.pickup').value;
+      const base = TUITION[days][pickup];
+      return {
+        index: parseInt(row.dataset.index, 10),
+        days, pickup, base,
+        pickupLabel: pickup === '430' ? 'Until 4:30' : 'Until 6:00',
+      };
+    });
+
+    const ranked = [...kids].sort((a, b) => b.base - a.base);
+
+    ranked.forEach((kid, rank) => {
+      if (rank === 0) { kid.discountPct = 0; kid.reg = 30; }
+      else if (rank === 1) { kid.discountPct = 20; kid.reg = 20; }
+      else { kid.discountPct = 30; kid.reg = 10; }
+      kid.tuition = Math.round(kid.base * (1 - kid.discountPct / 100));
+    });
+
+    ranked.sort((a, b) => a.index - b.index);
+
+    resultBody.innerHTML = ranked.map((kid) => `
+      <tr>
+        <td class="child-cell">Child ${kid.index}</td>
+        <td>${kid.days} days &middot; ${kid.pickupLabel}</td>
+        <td class="num money">${currency(kid.base)}</td>
+        <td>${kid.discountPct === 0
+          ? '<span class="pill full">Full price</span>'
+          : `<span class="pill save">${kid.discountPct}% off</span>`}</td>
+        <td class="num money">${currency(kid.tuition)}</td>
+        <td class="num money">${currency(kid.reg)}</td>
+      </tr>
+    `).join('');
+
+    const totalTuition = ranked.reduce((s, k) => s + k.tuition, 0);
+    const totalReg = ranked.reduce((s, k) => s + k.reg, 0);
+
+    document.getElementById('totalTuition').textContent = currency(totalTuition);
+    document.getElementById('totalReg').textContent = currency(totalReg);
+    document.getElementById('sumMonthly').textContent = currency(totalTuition);
+    document.getElementById('sumReg').textContent = currency(totalReg);
+    document.getElementById('sumFirst').textContent = currency(totalTuition + totalReg);
+  }
+
+  kidCountInput.addEventListener('input', renderRows);
+  kidRowsEl.addEventListener('change', calculate);
+
+  renderRows();
+</script>
