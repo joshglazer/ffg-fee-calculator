@@ -1,5 +1,6 @@
 <title>Hampden Afterschool Calculator</title>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -277,7 +278,7 @@
   }
 
   tfoot td {
-    padding-top: 16px;
+    padding: 16px 10px 0 0;
     border-top: 2px solid var(--ink);
     border-bottom: none;
     font-family: "Oswald", ui-sans-serif, sans-serif;
@@ -343,9 +344,94 @@
 
   footer strong { color: var(--ink-soft); }
 
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
+    body { padding: 32px 14px 56px; }
+
+    .page { gap: 20px; }
+
+    .card { padding: 20px 16px 22px; }
+
+    .kid-count-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      max-width: 120px;
+      padding: 11px 10px;
+    }
+
+    select {
+      padding: 12px 30px 12px 10px;
+    }
+
     .kid-row { grid-template-columns: 1fr; }
     .kid-row .kid-label { padding-bottom: 2px; }
+
+    /* Stack the results table into labeled cards instead of scrolling horizontally. */
+    .table-scroll { overflow-x: visible; }
+
+    table { min-width: 0; }
+
+    thead { display: none; }
+
+    tbody tr {
+      display: block;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    tbody tr:first-child { padding-top: 0; }
+
+    tbody td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 0;
+      border-bottom: none;
+      text-align: right;
+    }
+
+    tbody td.child-cell {
+      font-size: 15.5px;
+      padding-top: 0;
+    }
+
+    tbody td::before {
+      content: attr(data-label);
+      font-family: "Oswald", ui-sans-serif, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      text-align: left;
+    }
+
+    tbody td.child-cell::before { content: none; }
+
+    tfoot tr { display: block; }
+
+    tfoot td {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 10px;
+    }
+
+    tfoot .foot-label { padding-bottom: 0; }
+
+    tfoot td.foot-value::before {
+      content: attr(data-label);
+      font-family: "Oswald", ui-sans-serif, sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
   }
 </style>
 
@@ -373,7 +459,6 @@
           <tr>
             <th>Child</th>
             <th>Schedule</th>
-            <th class="num">Base tuition</th>
             <th class="num" id="monthlyHead">Monthly tuition</th>
           </tr>
         </thead>
@@ -381,7 +466,7 @@
         <tfoot>
           <tr>
             <td class="foot-label" id="footLabel" colspan="3">Total</td>
-            <td class="num foot-value" id="totalTuition">&nbsp;</td>
+            <td class="num foot-value" id="totalTuition" data-label="Tuition">&nbsp;</td>
           </tr>
         </tfoot>
       </table>
@@ -472,6 +557,17 @@
 
     const anyDiscount = ranked.some((kid) => kid.discountPct > 0);
 
+    let baseHead = document.getElementById('baseHead');
+    if (anyDiscount && !baseHead) {
+      baseHead = document.createElement('th');
+      baseHead.id = 'baseHead';
+      baseHead.className = 'num';
+      baseHead.textContent = 'Base tuition';
+      document.getElementById('monthlyHead').before(baseHead);
+    } else if (!anyDiscount && baseHead) {
+      baseHead.remove();
+    }
+
     let discountHead = document.getElementById('discountHead');
     if (anyDiscount && !discountHead) {
       discountHead = document.createElement('th');
@@ -481,17 +577,17 @@
     } else if (!anyDiscount && discountHead) {
       discountHead.remove();
     }
-    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 3;
+    document.getElementById('footLabel').colSpan = anyDiscount ? 4 : 2;
 
     resultBody.innerHTML = ranked.map((kid) => `
       <tr>
         <td class="child-cell">Child ${kid.index}</td>
-        <td>${kid.days} days &middot; ${kid.pickupLabel}</td>
-        <td class="num money">${currency(kid.base)}</td>
-        ${anyDiscount ? `<td>${kid.discountPct === 0
+        <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
+        ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
+        ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
           ? '<span class="pill full">Full price</span>'
           : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
-        <td class="num money">${currency(kid.tuition)}</td>
+        <td class="num money" data-label="Monthly tuition">${currency(kid.tuition)}</td>
       </tr>
     `).join('');
 
