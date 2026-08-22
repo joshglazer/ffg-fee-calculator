@@ -720,6 +720,35 @@
   let addons = [];
   let addonSeq = 0;
 
+  const STORAGE_KEY = 'ffgCalculatorState';
+
+  function saveState() {
+    const kidRows = [...kidRowsEl.querySelectorAll('.kid-row')].map((row) => ({
+      days: row.querySelector('.days').value,
+      pickup: row.querySelector('.pickup').value,
+    }));
+    const state = {
+      kidCount: kidCountInput.value,
+      sameSchedule: sameScheduleCheckbox.checked,
+      sharedDays: sharedDays.value,
+      sharedPickup: sharedPickup.value,
+      kidRows,
+      addons: addons.map(({ type, count }) => ({ type, count })),
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function availableTypesFor(currentType) {
     return Object.keys(ADDON_TYPES).filter((t) => t === currentType || !addons.some((a) => a.type === t));
   }
@@ -769,7 +798,7 @@
     kidRowsEl.hidden = shared;
   }
 
-  function renderRows() {
+  function renderRows(savedKidRows) {
     const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
     kidCountInput.value = count;
 
@@ -780,6 +809,9 @@
       }
     } else if (count > existing) {
       for (let i = existing + 1; i <= count; i++) {
+        const saved = savedKidRows && savedKidRows[i - 1];
+        const days = saved ? saved.days : '5';
+        const pickup = saved ? saved.pickup : '600';
         const row = document.createElement('div');
         row.className = 'kid-row';
         row.dataset.index = i;
@@ -788,17 +820,17 @@
           <div class="field">
             <span>Days / week</span>
             <select class="days">
-              <option value="2">2 days</option>
-              <option value="3">3 days</option>
-              <option value="4">4 days</option>
-              <option value="5" selected>5 days</option>
+              <option value="2" ${days === '2' ? 'selected' : ''}>2 days</option>
+              <option value="3" ${days === '3' ? 'selected' : ''}>3 days</option>
+              <option value="4" ${days === '4' ? 'selected' : ''}>4 days</option>
+              <option value="5" ${days === '5' ? 'selected' : ''}>5 days</option>
             </select>
           </div>
           <div class="field">
             <span>Pickup time</span>
             <select class="pickup">
-              <option value="430">Until 4:30pm</option>
-              <option value="600" selected>Until 6:00pm</option>
+              <option value="430" ${pickup === '430' ? 'selected' : ''}>Until 4:30pm</option>
+              <option value="600" ${pickup === '600' ? 'selected' : ''}>Until 6:00pm</option>
             </select>
           </div>
         `;
@@ -913,9 +945,11 @@
     const total = totalTuition + addonTotal;
 
     document.getElementById('totalTuition').textContent = currency(total);
+
+    saveState();
   }
 
-  kidCountInput.addEventListener('input', renderRows);
+  kidCountInput.addEventListener('input', () => renderRows());
   kidRowsEl.addEventListener('change', calculate);
   sameScheduleCheckbox.addEventListener('change', () => {
     updateScheduleMode();
@@ -964,6 +998,18 @@
     calculate();
   });
 
+  const savedState = loadState();
+
+  if (savedState) {
+    if (savedState.kidCount) kidCountInput.value = savedState.kidCount;
+    if (typeof savedState.sameSchedule === 'boolean') sameScheduleCheckbox.checked = savedState.sameSchedule;
+    if (savedState.sharedDays) sharedDays.value = savedState.sharedDays;
+    if (savedState.sharedPickup) sharedPickup.value = savedState.sharedPickup;
+    if (Array.isArray(savedState.addons)) {
+      addons = savedState.addons.map((a) => ({ id: ++addonSeq, type: a.type, count: a.count }));
+    }
+  }
+
   renderAddons();
-  renderRows();
+  renderRows(savedState ? savedState.kidRows : null);
 </script>
