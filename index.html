@@ -339,6 +339,24 @@
     color: var(--ink-faint);
   }
 
+  .addon-scope {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 100%;
+  }
+
+  .addon-scope .checkbox-label {
+    font-size: 13.5px;
+  }
+
+  .addon-kid-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-left: 2px;
+  }
+
   .add-addon-btn {
     display: flex;
     align-items: center;
@@ -691,10 +709,10 @@
       desc: 'Supper on early-dismissal days, 11:30am&ndash;4:00pm &middot; $30/day &middot; sibling discount applies',
       hasCount: true,
       addonLabel: (n) => `Half-days &middot; ${n} &times; $30`,
-      perChild: (entry, kid) => {
+      perChild: (entry, kid, rank, discountPct) => {
         const raw = entry.count * 30;
-        const amount = Math.round(raw * (1 - kid.discountPct / 100));
-        const pill = kid.discountPct === 0 ? fullPricePill('Full price') : savePill(`${kid.discountPct}% off`);
+        const amount = Math.round(raw * (1 - discountPct / 100));
+        const pill = discountPct === 0 ? fullPricePill('Full price') : savePill(`${discountPct}% off`);
         return { raw, amount, pill };
       },
     },
@@ -706,10 +724,10 @@
       desc: 'Supper during the August program week &middot; $20/day &middot; sibling discount applies',
       hasCount: true,
       addonLabel: (n) => `August week &middot; ${n} &times; $20`,
-      perChild: (entry, kid) => {
+      perChild: (entry, kid, rank, discountPct) => {
         const raw = entry.count * 20;
-        const amount = Math.round(raw * (1 - kid.discountPct / 100));
-        const pill = kid.discountPct === 0 ? fullPricePill('Full price') : savePill(`${kid.discountPct}% off`);
+        const amount = Math.round(raw * (1 - discountPct / 100));
+        const pill = discountPct === 0 ? fullPricePill('Full price') : savePill(`${discountPct}% off`);
         return { raw, amount, pill };
       },
     },
@@ -752,7 +770,7 @@
       sharedDays: sharedDays.value,
       sharedPickup: sharedPickup.value,
       kidRows,
-      addons: addons.map(({ type, count, amount }) => ({ type, count, amount })),
+      addons: addons.map(({ type, count, amount, appliesToAll, kidIndices }) => ({ type, count, amount, appliesToAll, kidIndices })),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -778,9 +796,14 @@
 
   function defaultEntry(type) {
     const meta = ADDON_TYPES[type];
-    if (meta.hasAmount) return { amount: 0 };
-    if (meta.hasCount) return { count: 1 };
-    return {};
+    const entry = {};
+    if (meta.hasAmount) entry.amount = 0;
+    if (meta.hasCount) entry.count = 1;
+    if (meta.scope !== 'family') {
+      entry.appliesToAll = true;
+      entry.kidIndices = [];
+    }
+    return entry;
   }
 
   function isActiveAddon(entry) {
@@ -790,25 +813,66 @@
     return true;
   }
 
+  // Kids a per-child addon actually applies to, given its "applies to all" / picker state.
+  function kidsForAddon(entry, kids) {
+    if (entry.appliesToAll === false) {
+      const set = new Set(entry.kidIndices || []);
+      return kids.filter((kid) => set.has(kid.index));
+    }
+    return kids;
+  }
+
+  // Sibling-discount ranking scoped to only the kids an addon applies to.
+  function rankAddonKids(applicableKids) {
+    const rankedForAddon = [...applicableKids].sort((a, b) => b.base - a.base);
+    const map = new Map();
+    rankedForAddon.forEach((kid, rank) => {
+      const discountPct = rank === 0 ? 0 : rank === 1 ? 20 : 30;
+      map.set(kid.index, { rank, discountPct });
+    });
+    return map;
+  }
+
   function renderAddons() {
+    const kidCount = currentKidCount();
+
     addonListEl.innerHTML = addons.map((entry) => {
       const meta = ADDON_TYPES[entry.type];
       const options = availableTypesFor(entry.type)
         .map((t) => `<option value="${t}" ${t === entry.type ? 'selected' : ''}>${ADDON_TYPES[t].label}</option>`)
         .join('');
-      const body = meta.hasCount
+      const mainField = meta.hasCount
         ? `<div class="field">
             <span>${meta.countLabel}</span>
             <input type="number" class="addon-count" min="0" ${meta.max ? `max="${meta.max}"` : ''} value="${entry.count}" inputmode="numeric">
-          </div>
-          <p class="addon-desc">${meta.desc}</p>`
+          </div>`
         : meta.hasAmount
         ? `<div class="field">
             <span>Amount ($)</span>
             <input type="number" class="addon-amount" min="0" value="${entry.amount}" inputmode="numeric">
-          </div>
-          <p class="addon-desc">${meta.desc}</p>`
-        : `<p class="addon-desc">${meta.desc}</p>`;
+          </div>`
+        : '';
+
+      const scopeBlock = meta.scope !== 'family' && kidCount > 1
+        ? `<div class="addon-scope">
+            <label class="checkbox-label">
+              <input type="checkbox" class="addon-all-kids" ${entry.appliesToAll !== false ? 'checked' : ''}>
+              Applies to all children
+            </label>
+            ${entry.appliesToAll === false
+              ? `<div class="addon-kid-picker">
+                  ${Array.from({ length: kidCount }, (_, i) => i + 1).map((idx) => `
+                    <label class="checkbox-label kid-checkbox">
+                      <input type="checkbox" class="addon-kid" data-kid-index="${idx}" ${(entry.kidIndices || []).includes(idx) ? 'checked' : ''}>
+                      Child ${idx}
+                    </label>
+                  `).join('')}
+                </div>`
+              : ''}
+          </div>`
+        : '';
+
+      const body = `${mainField}${scopeBlock}<p class="addon-desc">${meta.desc}</p>`;
 
       return `
         <div class="addon-entry" data-id="${entry.id}">
@@ -824,21 +888,23 @@
     addAddonBtn.disabled = addons.length >= Object.keys(ADDON_TYPES).length;
   }
 
+  function currentKidCount() {
+    return Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+  }
+
   function usingSharedSchedule() {
-    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
-    return count > 1 && sameScheduleCheckbox.checked;
+    return currentKidCount() > 1 && sameScheduleCheckbox.checked;
   }
 
   function updateScheduleMode() {
-    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
-    sameScheduleRow.hidden = count <= 1;
+    sameScheduleRow.hidden = currentKidCount() <= 1;
     const shared = usingSharedSchedule();
     sharedScheduleRow.hidden = !shared;
     kidRowsEl.hidden = shared;
   }
 
   function renderRows(savedKidRows) {
-    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    const count = currentKidCount();
 
     const existing = kidRowsEl.querySelectorAll('.kid-row').length;
     if (count < existing) {
@@ -876,11 +942,12 @@
       }
     }
     updateScheduleMode();
+    renderAddons();
     calculate();
   }
 
   function calculate() {
-    const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+    const count = currentKidCount();
     let kids;
     if (usingSharedSchedule()) {
       const days = parseInt(sharedDays.value, 10);
@@ -946,6 +1013,16 @@
     const perChildAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope !== 'family');
     const familyAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope === 'family');
 
+    const perChildAddonInfo = perChildAddons.map((entry) => {
+      const applicable = kidsForAddon(entry, ranked);
+      return {
+        entry,
+        meta: ADDON_TYPES[entry.type],
+        applicableIndices: new Set(applicable.map((kid) => kid.index)),
+        rankMap: rankAddonKids(applicable),
+      };
+    });
+
     let addonTotal = 0;
 
     const kidRows = ranked.map((kid) => {
@@ -961,20 +1038,23 @@
         </tr>
       `;
 
-      const subRows = perChildAddons.map((entry) => {
-        const meta = ADDON_TYPES[entry.type];
-        const { raw, amount, pill } = meta.perChild(entry, kid, kid.rank);
-        addonTotal += amount;
-        return `
-          <tr class="addon-subrow">
-            <td class="child-cell"></td>
-            <td data-label="Add-on">${meta.addonLabel(entry.count)}</td>
-            ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(raw)}</td>` : ''}
-            ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
-            <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
-          </tr>
-        `;
-      }).join('');
+      const subRows = perChildAddonInfo
+        .filter((info) => info.applicableIndices.has(kid.index))
+        .map((info) => {
+          const { entry, meta, rankMap } = info;
+          const { rank, discountPct } = rankMap.get(kid.index);
+          const { raw, amount, pill } = meta.perChild(entry, kid, rank, discountPct);
+          addonTotal += amount;
+          return `
+            <tr class="addon-subrow">
+              <td class="child-cell"></td>
+              <td data-label="Add-on">${meta.addonLabel(entry.count)}</td>
+              ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(raw)}</td>` : ''}
+              ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
+              <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
+            </tr>
+          `;
+        }).join('');
 
       return mainRow + subRows;
     }).join('');
@@ -1033,16 +1113,41 @@
   });
 
   addonListEl.addEventListener('change', (e) => {
-    if (!e.target.classList.contains('addon-type')) return;
     const entryEl = e.target.closest('.addon-entry');
+    if (!entryEl) return;
     const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
     if (!entry) return;
-    entry.type = e.target.value;
-    delete entry.count;
-    delete entry.amount;
-    Object.assign(entry, defaultEntry(entry.type));
-    renderAddons();
-    calculate();
+
+    if (e.target.classList.contains('addon-type')) {
+      entry.type = e.target.value;
+      delete entry.count;
+      delete entry.amount;
+      delete entry.appliesToAll;
+      delete entry.kidIndices;
+      Object.assign(entry, defaultEntry(entry.type));
+      renderAddons();
+      calculate();
+      return;
+    }
+
+    if (e.target.classList.contains('addon-all-kids')) {
+      entry.appliesToAll = e.target.checked;
+      if (!entry.appliesToAll && (!entry.kidIndices || entry.kidIndices.length === 0)) {
+        entry.kidIndices = Array.from({ length: currentKidCount() }, (_, i) => i + 1);
+      }
+      renderAddons();
+      calculate();
+      return;
+    }
+
+    if (e.target.classList.contains('addon-kid')) {
+      const idx = parseInt(e.target.dataset.kidIndex, 10);
+      const set = new Set(entry.kidIndices || []);
+      if (e.target.checked) set.add(idx); else set.delete(idx);
+      entry.kidIndices = [...set].sort((a, b) => a - b);
+      calculate();
+      return;
+    }
   });
 
   addonListEl.addEventListener('input', (e) => {
@@ -1082,6 +1187,10 @@
           const entry = { id: ++addonSeq, type: a.type };
           if (meta.hasCount) entry.count = typeof a.count === 'number' ? a.count : 1;
           if (meta.hasAmount) entry.amount = typeof a.amount === 'number' ? a.amount : 0;
+          if (meta.scope !== 'family') {
+            entry.appliesToAll = typeof a.appliesToAll === 'boolean' ? a.appliesToAll : true;
+            entry.kidIndices = Array.isArray(a.kidIndices) ? a.kidIndices.filter((n) => Number.isInteger(n)) : [];
+          }
           return entry;
         });
     }
