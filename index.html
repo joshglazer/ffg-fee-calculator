@@ -82,6 +82,7 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--accent-deep);
+    margin: 0 0 10px;
   }
 
   header h1 {
@@ -89,7 +90,7 @@
     font-weight: 700;
     font-size: clamp(28px, 5vw, 40px);
     letter-spacing: 0.01em;
-    margin: 6px 0 8px;
+    margin: 0 0 6px;
     text-wrap: balance;
     color: var(--ink);
   }
@@ -550,33 +551,26 @@
 
     tbody td.child-cell::before { content: none; }
 
-    tfoot tr { display: block; }
-
-    tfoot td {
+    tfoot tr {
       display: flex;
       justify-content: space-between;
+      align-items: baseline;
+      border-top: 2px solid var(--ink);
       padding-top: 10px;
     }
 
-    tfoot .foot-label { padding-bottom: 0; }
-
-    tfoot td.foot-value::before {
-      content: attr(data-label);
-      font-family: "Oswald", ui-sans-serif, sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--ink-soft);
+    tfoot td {
+      padding: 0;
+      border-top: none;
     }
   }
 </style>
 
 <div class="page">
   <header>
-    <div class="eyebrow">Fitness Fun &amp; Games &middot; Hampden Elementary/Middle #55</div>
-    <h1>Afterschool Cost Calculator</h1>
-    <p>Calculate monthly cost, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
+    <h1>Fitness, Fun, and Games (Unofficial) After School Care Cost Calculator</h1>
+    <div class="eyebrow">Hampden Elementary/Middle School #55</div>
+    <p>Calculate your monthly cost for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">fee sheet</a>.</p>
   </header>
 
   <div class="card">
