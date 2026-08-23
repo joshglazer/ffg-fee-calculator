@@ -576,7 +576,7 @@
   <header>
     <div class="eyebrow">Fitness Fun &amp; Games &middot; Hampden Elementary/Middle #55</div>
     <h1>Afterschool Cost Calculator</h1>
-    <p>Calculate monthly tuition, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
+    <p>Calculate monthly cost, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
   </header>
 
   <div class="card">
@@ -627,14 +627,14 @@
           <tr>
             <th>Child</th>
             <th>Schedule</th>
-            <th class="num" id="monthlyHead">Monthly tuition</th>
+            <th class="num" id="monthlyHead">Cost</th>
           </tr>
         </thead>
         <tbody id="resultBody"></tbody>
         <tfoot>
           <tr>
             <td class="foot-label" id="footLabel" colspan="3">Total</td>
-            <td class="num foot-value" id="totalTuition" data-label="Amount">&nbsp;</td>
+            <td class="num foot-value" id="totalCost" data-label="Cost">&nbsp;</td>
           </tr>
         </tfoot>
       </table>
@@ -647,7 +647,7 @@
 </div>
 
 <script>
-  const TUITION = {
+  const RATES = {
     2: { 430: 130, 600: 185 },
     3: { 430: 180, 600: 235 },
     4: { 430: 220, 600: 290 },
@@ -679,7 +679,7 @@
       max: null,
       desc: 'Supper on early-dismissal days, 11:30am&ndash;4:00pm &middot; $30/day &middot; sibling discount applies',
       hasCount: true,
-      itemLabel: (n) => `Half-days &middot; ${n} &times; $30`,
+      addonLabel: (n) => `Half-days &middot; ${n} &times; $30`,
       perChild: (entry, kid) => {
         const raw = entry.count * 30;
         const amount = Math.round(raw * (1 - kid.discountPct / 100));
@@ -694,7 +694,7 @@
       max: 5,
       desc: 'Supper during the August program week &middot; $20/day &middot; sibling discount applies',
       hasCount: true,
-      itemLabel: (n) => `August week &middot; ${n} &times; $20`,
+      addonLabel: (n) => `August week &middot; ${n} &times; $20`,
       perChild: (entry, kid) => {
         const raw = entry.count * 20;
         const amount = Math.round(raw * (1 - kid.discountPct / 100));
@@ -706,7 +706,7 @@
       label: 'Annual registration fee',
       desc: '$30 for 1st child, $20 for 2nd, $10 for 3rd+',
       hasCount: false,
-      itemLabel: () => 'Registration fee',
+      addonLabel: () => 'Registration fee',
       perChild: (entry, kid, rank) => {
         const raw = REGISTRATION_RATES[0];
         const amount = REGISTRATION_RATES[Math.min(rank, REGISTRATION_RATES.length - 1)];
@@ -720,7 +720,7 @@
       desc: 'A one-time flat amount subtracted once from your total &mdash; not tied to a child, and the sibling discount doesn&rsquo;t apply',
       scope: 'family',
       hasAmount: true,
-      itemLabel: () => 'One-time credit / discount',
+      addonLabel: () => 'One-time credit / discount',
       familyAmount: (entry) => -entry.amount,
     },
   };
@@ -874,7 +874,7 @@
     if (usingSharedSchedule()) {
       const days = parseInt(sharedDays.value, 10);
       const pickup = sharedPickup.value;
-      const base = TUITION[days][pickup];
+      const base = RATES[days][pickup];
       const pickupLabel = pickup === '430' ? 'Until 4:30' : 'Until 6:00';
       kids = Array.from({ length: count }, (_, i) => ({
         index: i + 1,
@@ -885,7 +885,7 @@
       kids = rows.map((row) => {
         const days = parseInt(row.querySelector('.days').value, 10);
         const pickup = row.querySelector('.pickup').value;
-        const base = TUITION[days][pickup];
+        const base = RATES[days][pickup];
         return {
           index: parseInt(row.dataset.index, 10),
           days, pickup, base,
@@ -901,7 +901,7 @@
       if (rank === 0) { kid.discountPct = 0; }
       else if (rank === 1) { kid.discountPct = 20; }
       else { kid.discountPct = 30; }
-      kid.tuition = Math.round(kid.base * (1 - kid.discountPct / 100));
+      kid.cost = Math.round(kid.base * (1 - kid.discountPct / 100));
     });
 
     ranked.sort((a, b) => a.index - b.index);
@@ -913,7 +913,7 @@
       baseHead = document.createElement('th');
       baseHead.id = 'baseHead';
       baseHead.className = 'num';
-      baseHead.textContent = 'Base tuition';
+      baseHead.textContent = 'Base cost';
       document.getElementById('monthlyHead').before(baseHead);
     } else if (!anyDiscount && baseHead) {
       baseHead.remove();
@@ -942,11 +942,11 @@
         <tr>
           <td class="child-cell">Child ${kid.index}</td>
           <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
-          ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
+          ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(kid.base)}</td>` : ''}
           ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
             ? '<span class="pill full">Full price</span>'
             : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
-          <td class="num money money-strong" data-label="Monthly tuition">${currency(kid.tuition)}</td>
+          <td class="num money money-strong" data-label="Cost">${currency(kid.cost)}</td>
         </tr>
       `;
 
@@ -957,10 +957,10 @@
         return `
           <tr class="addon-subrow">
             <td class="child-cell"></td>
-            <td data-label="Item">${meta.itemLabel(entry.count)}</td>
-            ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(raw)}</td>` : ''}
+            <td data-label="Add-on">${meta.addonLabel(entry.count)}</td>
+            ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(raw)}</td>` : ''}
             ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
-            <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+            <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
           </tr>
         `;
       }).join('');
@@ -975,20 +975,20 @@
       return `
         <tr class="addon-subrow">
           <td class="child-cell">Family</td>
-          <td data-label="Item">${meta.itemLabel(entry)}</td>
-          ${anyDiscount ? `<td class="num money" data-label="Base tuition"></td>` : ''}
+          <td data-label="Add-on">${meta.addonLabel(entry)}</td>
+          ${anyDiscount ? `<td class="num money" data-label="Base cost"></td>` : ''}
           ${anyDiscount ? `<td data-label="Discount">${fullPricePill('Flat amount')}</td>` : ''}
-          <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+          <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
         </tr>
       `;
     }).join('');
 
     resultBody.innerHTML = kidRows + familyRows;
 
-    const totalTuition = ranked.reduce((s, k) => s + k.tuition, 0);
-    const total = totalTuition + addonTotal;
+    const totalCost = ranked.reduce((s, k) => s + k.cost, 0);
+    const total = totalCost + addonTotal;
 
-    document.getElementById('totalTuition').textContent = currency(total);
+    document.getElementById('totalCost').textContent = currency(total);
 
     saveState();
   }
