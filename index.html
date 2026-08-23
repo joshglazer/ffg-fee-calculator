@@ -715,6 +715,14 @@
         return { raw, amount, pill };
       },
     },
+    creditDiscount: {
+      label: 'Credit / discount',
+      desc: 'A one-time flat amount subtracted once from your total &mdash; not tied to a child, and the sibling discount doesn&rsquo;t apply',
+      scope: 'family',
+      hasAmount: true,
+      itemLabel: () => 'One-time credit / discount',
+      familyAmount: (entry) => -entry.amount,
+    },
   };
 
   let addons = [];
@@ -733,7 +741,7 @@
       sharedDays: sharedDays.value,
       sharedPickup: sharedPickup.value,
       kidRows,
-      addons: addons.map(({ type, count }) => ({ type, count })),
+      addons: addons.map(({ type, count, amount }) => ({ type, count, amount })),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -757,6 +765,20 @@
     return Object.keys(ADDON_TYPES).find((t) => !addons.some((a) => a.type === t));
   }
 
+  function defaultEntry(type) {
+    const meta = ADDON_TYPES[type];
+    if (meta.hasAmount) return { amount: 0 };
+    if (meta.hasCount) return { count: 1 };
+    return {};
+  }
+
+  function isActiveAddon(entry) {
+    const meta = ADDON_TYPES[entry.type];
+    if (meta.hasCount) return entry.count > 0;
+    if (meta.hasAmount) return entry.amount > 0;
+    return true;
+  }
+
   function renderAddons() {
     addonListEl.innerHTML = addons.map((entry) => {
       const meta = ADDON_TYPES[entry.type];
@@ -767,6 +789,12 @@
         ? `<div class="field">
             <span>${meta.countLabel}</span>
             <input type="number" class="addon-count" min="0" ${meta.max ? `max="${meta.max}"` : ''} value="${entry.count}" inputmode="numeric">
+          </div>
+          <p class="addon-desc">${meta.desc}</p>`
+        : meta.hasAmount
+        ? `<div class="field">
+            <span>Amount ($)</span>
+            <input type="number" class="addon-amount" min="0" value="${entry.amount}" inputmode="numeric">
           </div>
           <p class="addon-desc">${meta.desc}</p>`
         : `<p class="addon-desc">${meta.desc}</p>`;
@@ -904,7 +932,9 @@
     const cols = anyDiscount ? 5 : 3;
     document.getElementById('footLabel').colSpan = cols - 1;
 
-    const activeAddons = addons.filter((entry) => ADDON_TYPES[entry.type].hasCount ? entry.count > 0 : true);
+    const activeAddons = addons.filter(isActiveAddon);
+    const perChildAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope !== 'family');
+    const familyAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope === 'family');
 
     let addonTotal = 0;
 
@@ -921,7 +951,7 @@
         </tr>
       `;
 
-      const subRows = activeAddons.map((entry) => {
+      const subRows = perChildAddons.map((entry) => {
         const meta = ADDON_TYPES[entry.type];
         const { raw, amount, pill } = meta.perChild(entry, kid, kid.rank);
         addonTotal += amount;
@@ -939,7 +969,22 @@
       return mainRow + subRows;
     }).join('');
 
-    resultBody.innerHTML = kidRows;
+    const familyRows = familyAddons.map((entry) => {
+      const meta = ADDON_TYPES[entry.type];
+      const amount = meta.familyAmount(entry);
+      addonTotal += amount;
+      return `
+        <tr class="addon-subrow">
+          <td class="child-cell">Family</td>
+          <td data-label="Item">${meta.itemLabel(entry)}</td>
+          ${anyDiscount ? `<td class="num money" data-label="Base tuition"></td>` : ''}
+          ${anyDiscount ? `<td data-label="Discount">${fullPricePill('Flat amount')}</td>` : ''}
+          <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    resultBody.innerHTML = kidRows + familyRows;
 
     const totalTuition = ranked.reduce((s, k) => s + k.tuition, 0);
     const total = totalTuition + addonTotal;
@@ -960,7 +1005,7 @@
   addAddonBtn.addEventListener('click', () => {
     const type = nextUnusedType();
     if (!type) return;
-    addons.push({ id: ++addonSeq, type, count: 1 });
+    addons.push({ id: ++addonSeq, type, ...defaultEntry(type) });
     renderAddons();
     calculate();
   });
@@ -980,22 +1025,33 @@
     const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
     if (!entry) return;
     entry.type = e.target.value;
-    entry.count = 1;
+    delete entry.count;
+    delete entry.amount;
+    Object.assign(entry, defaultEntry(entry.type));
     renderAddons();
     calculate();
   });
 
   addonListEl.addEventListener('input', (e) => {
-    if (!e.target.classList.contains('addon-count')) return;
-    const entryEl = e.target.closest('.addon-entry');
-    const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
-    if (!entry) return;
-    const meta = ADDON_TYPES[entry.type];
-    let val = Math.max(0, parseInt(e.target.value, 10) || 0);
-    if (meta.max) val = Math.min(meta.max, val);
-    entry.count = val;
-    e.target.value = val;
-    calculate();
+    if (e.target.classList.contains('addon-count')) {
+      const entryEl = e.target.closest('.addon-entry');
+      const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
+      if (!entry) return;
+      const meta = ADDON_TYPES[entry.type];
+      let val = Math.max(0, parseInt(e.target.value, 10) || 0);
+      if (meta.max) val = Math.min(meta.max, val);
+      entry.count = val;
+      e.target.value = val;
+      calculate();
+      return;
+    }
+    if (e.target.classList.contains('addon-amount')) {
+      const entryEl = e.target.closest('.addon-entry');
+      const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
+      if (!entry) return;
+      entry.amount = Math.max(0, parseInt(e.target.value, 10) || 0);
+      calculate();
+    }
   });
 
   const savedState = loadState();
@@ -1006,7 +1062,15 @@
     if (savedState.sharedDays) sharedDays.value = savedState.sharedDays;
     if (savedState.sharedPickup) sharedPickup.value = savedState.sharedPickup;
     if (Array.isArray(savedState.addons)) {
-      addons = savedState.addons.map((a) => ({ id: ++addonSeq, type: a.type, count: a.count }));
+      addons = savedState.addons
+        .filter((a) => ADDON_TYPES[a.type])
+        .map((a) => {
+          const meta = ADDON_TYPES[a.type];
+          const entry = { id: ++addonSeq, type: a.type };
+          if (meta.hasCount) entry.count = typeof a.count === 'number' ? a.count : 1;
+          if (meta.hasAmount) entry.amount = typeof a.amount === 'number' ? a.amount : 0;
+          return entry;
+        });
     }
   }
 
