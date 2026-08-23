@@ -828,7 +828,6 @@
 
   function renderRows(savedKidRows) {
     const count = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
-    kidCountInput.value = count;
 
     const existing = kidRowsEl.querySelectorAll('.kid-row').length;
     if (count < existing) {
@@ -995,6 +994,9 @@
   }
 
   kidCountInput.addEventListener('input', () => renderRows());
+  kidCountInput.addEventListener('blur', () => {
+    kidCountInput.value = Math.min(8, Math.max(1, parseInt(kidCountInput.value, 10) || 1));
+  });
   kidRowsEl.addEventListener('change', calculate);
   sameScheduleCheckbox.addEventListener('change', () => {
     updateScheduleMode();
