@@ -576,7 +576,7 @@
   <header>
     <div class="eyebrow">Fitness Fun &amp; Games &middot; Hampden Elementary/Middle #55</div>
     <h1>Afterschool Cost Calculator</h1>
-    <p>Calculate monthly tuition, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
+    <p>Calculate monthly cost, sibling discounts, and add-ons &mdash; registration fees, early-dismissal half-days, and August week supper &mdash; for the 2026&ndash;27 afterschool program, based on the <a href="FFG Fees 2026-27.pdf" target="_blank" rel="noopener">official fee sheet</a>.</p>
   </header>
 
   <div class="card">
@@ -627,14 +627,14 @@
           <tr>
             <th>Child</th>
             <th>Schedule</th>
-            <th class="num" id="monthlyHead">Monthly tuition</th>
+            <th class="num" id="monthlyHead">Cost</th>
           </tr>
         </thead>
         <tbody id="resultBody"></tbody>
         <tfoot>
           <tr>
             <td class="foot-label" id="footLabel" colspan="3">Total</td>
-            <td class="num foot-value" id="totalTuition" data-label="Amount">&nbsp;</td>
+            <td class="num foot-value" id="totalTuition" data-label="Cost">&nbsp;</td>
           </tr>
         </tfoot>
       </table>
@@ -913,7 +913,7 @@
       baseHead = document.createElement('th');
       baseHead.id = 'baseHead';
       baseHead.className = 'num';
-      baseHead.textContent = 'Base tuition';
+      baseHead.textContent = 'Base cost';
       document.getElementById('monthlyHead').before(baseHead);
     } else if (!anyDiscount && baseHead) {
       baseHead.remove();
@@ -942,11 +942,11 @@
         <tr>
           <td class="child-cell">Child ${kid.index}</td>
           <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
-          ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(kid.base)}</td>` : ''}
+          ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(kid.base)}</td>` : ''}
           ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
             ? '<span class="pill full">Full price</span>'
             : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
-          <td class="num money money-strong" data-label="Monthly tuition">${currency(kid.tuition)}</td>
+          <td class="num money money-strong" data-label="Cost">${currency(kid.tuition)}</td>
         </tr>
       `;
 
@@ -957,10 +957,10 @@
         return `
           <tr class="addon-subrow">
             <td class="child-cell"></td>
-            <td data-label="Item">${meta.itemLabel(entry.count)}</td>
-            ${anyDiscount ? `<td class="num money" data-label="Base tuition">${currency(raw)}</td>` : ''}
+            <td data-label="Add-on">${meta.itemLabel(entry.count)}</td>
+            ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(raw)}</td>` : ''}
             ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
-            <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+            <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
           </tr>
         `;
       }).join('');
@@ -975,10 +975,10 @@
       return `
         <tr class="addon-subrow">
           <td class="child-cell">Family</td>
-          <td data-label="Item">${meta.itemLabel(entry)}</td>
-          ${anyDiscount ? `<td class="num money" data-label="Base tuition"></td>` : ''}
+          <td data-label="Add-on">${meta.itemLabel(entry)}</td>
+          ${anyDiscount ? `<td class="num money" data-label="Base cost"></td>` : ''}
           ${anyDiscount ? `<td data-label="Discount">${fullPricePill('Flat amount')}</td>` : ''}
-          <td class="num money money-strong" data-label="Amount">${currency(amount)}</td>
+          <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
         </tr>
       `;
     }).join('');
