@@ -787,12 +787,13 @@
     },
     augustDays: {
       label: 'August days (Aug 24&ndash;28)',
+      payLabel: 'August Days',
       countLabel: 'Days',
       rate: 20,
       max: 5,
       desc: 'Supper during the August program week &middot; $20/day &middot; sibling discount applies',
       hasCount: true,
-      addonLabel: (n) => `August week &middot; ${n} &times; $20`,
+      addonLabel: (n) => `August Days &middot; ${n} &times; $20`,
       perChild: (entry, kid, rank, discountPct) => {
         const raw = entry.count * 20;
         const amount = Math.round(raw * (1 - discountPct / 100));
@@ -1155,7 +1156,8 @@
       .filter((entry) => entry.type !== 'creditDiscount')
       .map((entry) => {
         const meta = ADDON_TYPES[entry.type];
-        return meta.hasCount ? `${entry.count} x ${meta.label}` : meta.label;
+        const label = meta.payLabel || meta.label;
+        return meta.hasCount ? `${entry.count} x ${label}` : label;
       });
     const forDates = [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels].join(', ');
     payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}&cf_For_Dates=${encodeURIComponent(forDates)}`;
