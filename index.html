@@ -472,6 +472,34 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .pay-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 20px;
+    font-family: "Oswald", ui-sans-serif, sans-serif;
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    background: var(--accent);
+    border-radius: 8px;
+    padding: 13px 14px;
+    text-decoration: none;
+  }
+
+  .pay-link:hover {
+    background: var(--accent-deep);
+  }
+
+  .pay-due {
+    margin: 10px 0 0;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-faint);
+  }
+
   .summary-strip {
     display: flex;
     flex-wrap: wrap;
@@ -668,6 +696,8 @@
         </tfoot>
       </table>
     </div>
+    <a class="pay-link" id="payLink" href="#" target="_blank" rel="noopener">Pay this bill</a>
+    <p class="pay-due" id="payDue"></p>
   </div>
 
   <footer>
@@ -695,6 +725,40 @@
   const sharedPickup = document.getElementById('sharedPickup');
   const addonListEl = document.getElementById('addonList');
   const addAddonBtn = document.getElementById('addAddonBtn');
+  const payLink = document.getElementById('payLink');
+  const payDue = document.getElementById('payDue');
+  const PAY_URL_BASE = 'https://fitnessfunhpp.securepayments.cardpointe.com/pay?cf_Location=Hampden_(HD)&cf_Services=After_School';
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Bills are due on the 10th of the month before the month they cover
+  // (e.g. the October bill is due September 10th).
+  function nextBillDue() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    let dueMonth = today.getMonth();
+    let dueYear = today.getFullYear();
+    if (today.getDate() > 10) {
+      dueMonth += 1;
+      if (dueMonth > 11) { dueMonth = 0; dueYear += 1; }
+    }
+    const dueDate = new Date(dueYear, dueMonth, 10);
+
+    let billMonth = dueMonth + 1;
+    let billYear = dueYear;
+    if (billMonth > 11) { billMonth = 0; billYear += 1; }
+
+    const daysUntil = Math.round((dueDate - today) / (24 * 60 * 60 * 1000));
+
+    return { billMonthName: MONTH_NAMES[billMonth], daysUntil, dueDate };
+  }
+
+  function renderPayDue() {
+    const { billMonthName, daysUntil, dueDate } = nextBillDue();
+    const dueDateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const when = daysUntil <= 0 ? 'due today' : daysUntil === 1 ? 'due in 1 day' : `due in ${daysUntil} days`;
+    payDue.textContent = `${billMonthName} bill ${when} (${dueDateLabel})`;
+  }
   const REGISTRATION_RATES = [30, 20, 10];
 
   const fullPricePill = (text) => `<span class="pill full">${text}</span>`;
@@ -1081,6 +1145,9 @@
 
     document.getElementById('totalCost').textContent = currency(total);
 
+    const payableTotal = Math.max(0, total);
+    payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}`;
+
     saveState();
   }
 
@@ -1198,4 +1265,5 @@
 
   renderAddons();
   renderRows(savedState ? savedState.kidRows : null);
+  renderPayDue();
 </script>
