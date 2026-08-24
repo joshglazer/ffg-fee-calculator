@@ -750,11 +750,13 @@
 
     const daysUntil = Math.round((dueDate - today) / (24 * 60 * 60 * 1000));
 
-    return { billMonthName: MONTH_NAMES[billMonth], daysUntil, dueDate };
+    return { billMonthName: MONTH_NAMES[billMonth], billYear, daysUntil, dueDate };
   }
 
+  const BILL_INFO = nextBillDue();
+
   function renderPayDue() {
-    const { billMonthName, daysUntil, dueDate } = nextBillDue();
+    const { billMonthName, daysUntil, dueDate } = BILL_INFO;
     const dueDateLabel = dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const when = daysUntil <= 0 ? 'due today' : daysUntil === 1 ? 'due in 1 day' : `due in ${daysUntil} days`;
     payDue.textContent = `${billMonthName} bill ${when} (${dueDateLabel})`;
@@ -1146,7 +1148,9 @@
     document.getElementById('totalCost').textContent = currency(total);
 
     const payableTotal = Math.max(0, total);
-    payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}`;
+    const addonLabels = activeAddons.map((entry) => ADDON_TYPES[entry.type].label);
+    const forDates = [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels].join(', ');
+    payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}&cf_For_Dates=${encodeURIComponent(forDates)}`;
 
     saveState();
   }
