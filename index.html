@@ -1153,7 +1153,7 @@
     const payableTotal = Math.max(0, total);
     const addonLabels = activeAddons.map((entry) => {
       const meta = ADDON_TYPES[entry.type];
-      return meta.hasCount ? `${meta.label} (${entry.count})` : meta.label;
+      return meta.hasCount ? `${entry.count} x ${meta.label}` : meta.label;
     });
     const forDates = [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels].join(', ');
     payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}&cf_For_Dates=${encodeURIComponent(forDates)}`;
