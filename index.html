@@ -217,7 +217,20 @@
     padding: 8px 10px;
   }
 
-  input[type="number"]:focus, select:focus {
+  input[type="text"] {
+    font-family: "Work Sans", sans-serif;
+    font-variant-numeric: normal;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 10px;
+    width: 100%;
+  }
+
+  input[type="number"]:focus, input[type="text"]:focus, select:focus {
     outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
@@ -340,6 +353,10 @@
     flex: 1 1 220px;
     font-size: 13px;
     color: var(--ink-faint);
+  }
+
+  .addon-desc-field {
+    flex: 1 1 200px;
   }
 
   .addon-scope {
@@ -729,6 +746,10 @@
 
   const currency = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
+  const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+
   const kidCountInput = document.getElementById('kidCount');
   const kidRowsEl = document.getElementById('kidRows');
   const resultBody = document.getElementById('resultBody');
@@ -782,13 +803,20 @@
 
   const ADDON_TYPES = {
     halfDays: {
-      label: 'Early-dismissal half-days',
+      label: 'Early-dismissal half-days ($30/day)',
+      payLabel: 'Early-dismissal half-days',
       countLabel: 'Half-days',
       rate: 30,
       max: null,
       desc: 'Supper on early-dismissal days, 11:30am&ndash;4:00pm &middot; $30/day &middot; sibling discount applies',
       hasCount: true,
-      addonLabel: (n) => `Half-days &middot; ${n} &times; $30`,
+      hasDescription: true,
+      descLabel: 'Days',
+      descPlaceholder: 'e.g. Nov 4, Jan 17',
+      addonLabel: (n, entry) => {
+        const base = `Half-days &middot; ${n} &times; $30`;
+        return entry && entry.description ? `${base} &middot; ${escapeHtml(entry.description)}` : base;
+      },
       perChild: (entry, kid, rank, discountPct) => {
         const raw = entry.count * 30;
         const amount = Math.round(raw * (1 - discountPct / 100));
@@ -796,8 +824,30 @@
         return { raw, amount, pill };
       },
     },
+    occasionalCare: {
+      label: 'Occasional care hours ($10/hr)',
+      payLabel: 'Occasional Care',
+      countLabel: 'Hours',
+      rate: 10,
+      max: null,
+      desc: 'Drop-in care for pre-registered students &middot; $10/hr &middot; up to 4 days/month, 24+ hours notice &middot; sibling discount applies',
+      hasCount: true,
+      hasDescription: true,
+      descLabel: 'Days',
+      descPlaceholder: 'e.g. Nov 3, Nov 10',
+      addonLabel: (n, entry) => {
+        const base = `Occasional care &middot; ${n} hr &times; $10`;
+        return entry && entry.description ? `${base} &middot; ${escapeHtml(entry.description)}` : base;
+      },
+      perChild: (entry, kid, rank, discountPct) => {
+        const raw = entry.count * 10;
+        const amount = Math.round(raw * (1 - discountPct / 100));
+        const pill = discountPct === 0 ? fullPricePill('Full price') : savePill(`${discountPct}% off`);
+        return { raw, amount, pill };
+      },
+    },
     augustDays: {
-      label: 'August days (Aug 24&ndash;28)',
+      label: 'August days, Aug 24&ndash;28 ($20/day)',
       payLabel: 'August Days',
       countLabel: 'Days',
       rate: 20,
@@ -851,7 +901,7 @@
       sharedDays: sharedDays.value,
       sharedPickup: sharedPickup.value,
       kidRows,
-      addons: addons.map(({ type, count, amount, appliesToAll, kidIndices }) => ({ type, count, amount, appliesToAll, kidIndices })),
+      addons: addons.map(({ type, count, amount, description, appliesToAll, kidIndices }) => ({ type, count, amount, description, appliesToAll, kidIndices })),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -880,6 +930,7 @@
     const entry = {};
     if (meta.hasAmount) entry.amount = 0;
     if (meta.hasCount) entry.count = 1;
+    if (meta.hasDescription) entry.description = '';
     if (meta.scope !== 'family') {
       entry.appliesToAll = true;
       entry.kidIndices = [];
@@ -934,6 +985,13 @@
           </div>`
         : '';
 
+      const descField = meta.hasDescription
+        ? `<div class="field addon-desc-field">
+            <span>${meta.descLabel || 'Description'}</span>
+            <input type="text" class="addon-description" value="${escapeHtml(entry.description || '')}" placeholder="${meta.descPlaceholder || ''}">
+          </div>`
+        : '';
+
       const scopeBlock = meta.scope !== 'family' && kidCount > 1
         ? `<div class="addon-scope">
             <label class="checkbox-label">
@@ -953,7 +1011,7 @@
           </div>`
         : '';
 
-      const body = `${mainField}${scopeBlock}<p class="addon-desc">${meta.desc}</p>`;
+      const body = `${mainField}${descField}${scopeBlock}<p class="addon-desc">${meta.desc}</p>`;
 
       return `
         <div class="addon-entry" data-id="${entry.id}">
@@ -1129,7 +1187,7 @@
           return `
             <tr class="addon-subrow">
               <td class="child-cell"></td>
-              <td data-label="Add-on">${meta.addonLabel(entry.count)}</td>
+              <td data-label="Add-on">${meta.addonLabel(entry.count, entry)}</td>
               ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(raw)}</td>` : ''}
               ${anyDiscount ? `<td data-label="Discount">${pill}</td>` : ''}
               <td class="num money money-strong" data-label="Cost">${currency(amount)}</td>
@@ -1168,7 +1226,8 @@
       .map((entry) => {
         const meta = ADDON_TYPES[entry.type];
         const label = meta.payLabel || meta.label;
-        return meta.hasCount ? `${entry.count} x ${label}` : label;
+        const base = meta.hasCount ? `${entry.count} x ${label}` : label;
+        return meta.hasDescription && entry.description ? `${base} (${entry.description})` : base;
       });
     const forDates = [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels].join(', ');
     payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}&cf_For_Dates=${encodeURIComponent(forDates)}`;
@@ -1214,6 +1273,7 @@
       entry.type = e.target.value;
       delete entry.count;
       delete entry.amount;
+      delete entry.description;
       delete entry.appliesToAll;
       delete entry.kidIndices;
       Object.assign(entry, defaultEntry(entry.type));
@@ -1261,6 +1321,14 @@
       if (!entry) return;
       entry.amount = Math.max(0, parseInt(e.target.value, 10) || 0);
       calculate();
+      return;
+    }
+    if (e.target.classList.contains('addon-description')) {
+      const entryEl = e.target.closest('.addon-entry');
+      const entry = addons.find((a) => a.id === parseInt(entryEl.dataset.id, 10));
+      if (!entry) return;
+      entry.description = e.target.value;
+      calculate();
     }
   });
 
@@ -1279,6 +1347,7 @@
           const entry = { id: ++addonSeq, type: a.type };
           if (meta.hasCount) entry.count = typeof a.count === 'number' ? a.count : 1;
           if (meta.hasAmount) entry.amount = typeof a.amount === 'number' ? a.amount : 0;
+          if (meta.hasDescription) entry.description = typeof a.description === 'string' ? a.description : '';
           if (meta.scope !== 'family') {
             entry.appliesToAll = typeof a.appliesToAll === 'boolean' ? a.appliesToAll : true;
             entry.kidIndices = Array.isArray(a.kidIndices) ? a.kidIndices.filter((n) => Number.isInteger(n)) : [];
