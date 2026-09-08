@@ -826,7 +826,7 @@
     },
     occasionalCare: {
       label: 'Occasional care hours ($10/hr)',
-      payLabel: 'Occasional Care',
+      payLabel: 'Occasional Care Hours',
       countLabel: 'Hours',
       rate: 10,
       max: null,
@@ -836,7 +836,7 @@
       descLabel: 'Days',
       descPlaceholder: 'e.g. Nov 3, Nov 10',
       addonLabel: (n, entry) => {
-        const base = `Occasional care &middot; ${n} hr &times; $10`;
+        const base = `Occasional Care Hours &middot; ${n} hr &times; $10`;
         return entry && entry.description ? `${base} &middot; ${escapeHtml(entry.description)}` : base;
       },
       perChild: (entry, kid, rank, discountPct) => {
