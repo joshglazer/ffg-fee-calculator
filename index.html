@@ -235,6 +235,11 @@
     outline-offset: 1px;
   }
 
+  select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   .kid-rows {
     display: flex;
     flex-direction: column;
@@ -683,6 +688,7 @@
       <div class="field">
         <span>Days / week</span>
         <select id="sharedDays">
+          <option value="0">None (add-ons only)</option>
           <option value="2">2 days</option>
           <option value="3">3 days</option>
           <option value="4">4 days</option>
@@ -743,6 +749,10 @@
     4: { 430: 220, 600: 290 },
     5: { 430: 250, 600: 335 },
   };
+
+  // Days/week of 0 means no regular care - the family is only paying for add-ons.
+  const scheduleLabel = (days, pickupLabel) => (days === 0 ? 'Add-ons only' : `${days} days &middot; ${pickupLabel}`);
+  const baseFor = (days, pickup) => (days === 0 ? 0 : RATES[days][pickup]);
 
   const currency = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
@@ -1063,6 +1073,7 @@
           <div class="field">
             <span>Days / week</span>
             <select class="days">
+              <option value="0" ${days === '0' ? 'selected' : ''}>None (add-ons only)</option>
               <option value="2" ${days === '2' ? 'selected' : ''}>2 days</option>
               <option value="3" ${days === '3' ? 'selected' : ''}>3 days</option>
               <option value="4" ${days === '4' ? 'selected' : ''}>4 days</option>
@@ -1085,13 +1096,22 @@
     calculate();
   }
 
+  // Pickup time doesn't matter when a child has no regular care.
+  function syncPickupDisabled() {
+    sharedPickup.disabled = sharedDays.value === '0';
+    kidRowsEl.querySelectorAll('.kid-row').forEach((row) => {
+      row.querySelector('.pickup').disabled = row.querySelector('.days').value === '0';
+    });
+  }
+
   function calculate() {
+    syncPickupDisabled();
     const count = currentKidCount();
     let kids;
     if (usingSharedSchedule()) {
       const days = parseInt(sharedDays.value, 10);
       const pickup = sharedPickup.value;
-      const base = RATES[days][pickup];
+      const base = baseFor(days, pickup);
       const pickupLabel = pickup === '430' ? 'Until 4:30' : 'Until 6:00';
       kids = Array.from({ length: count }, (_, i) => ({
         index: i + 1,
@@ -1102,7 +1122,7 @@
       kids = rows.map((row) => {
         const days = parseInt(row.querySelector('.days').value, 10);
         const pickup = row.querySelector('.pickup').value;
-        const base = RATES[days][pickup];
+        const base = baseFor(days, pickup);
         return {
           index: parseInt(row.dataset.index, 10),
           days, pickup, base,
@@ -1118,12 +1138,29 @@
       if (rank === 0) { kid.discountPct = 0; }
       else if (rank === 1) { kid.discountPct = 20; }
       else { kid.discountPct = 30; }
+      if (kid.base === 0) kid.discountPct = 0;
       kid.cost = Math.round(kid.base * (1 - kid.discountPct / 100));
     });
 
     ranked.sort((a, b) => a.index - b.index);
 
-    const anyDiscount = ranked.some((kid) => kid.discountPct > 0);
+    const activeAddons = addons.filter(isActiveAddon);
+    const perChildAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope !== 'family');
+    const familyAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope === 'family');
+
+    const perChildAddonInfo = perChildAddons.map((entry) => {
+      const applicable = kidsForAddon(entry, ranked);
+      return {
+        entry,
+        meta: ADDON_TYPES[entry.type],
+        applicableIndices: new Set(applicable.map((kid) => kid.index)),
+        rankMap: rankAddonKids(applicable),
+      };
+    });
+
+    // Show discount columns if any child or any per-child add-on gets a sibling discount.
+    const anyDiscount = ranked.some((kid) => kid.discountPct > 0)
+      || perChildAddonInfo.some((info) => [...info.rankMap.values()].some(({ rank }) => rank > 0));
 
     let baseHead = document.getElementById('baseHead');
     if (anyDiscount && !baseHead) {
@@ -1148,29 +1185,15 @@
     const cols = anyDiscount ? 5 : 3;
     document.getElementById('footLabel').colSpan = cols - 1;
 
-    const activeAddons = addons.filter(isActiveAddon);
-    const perChildAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope !== 'family');
-    const familyAddons = activeAddons.filter((entry) => ADDON_TYPES[entry.type].scope === 'family');
-
-    const perChildAddonInfo = perChildAddons.map((entry) => {
-      const applicable = kidsForAddon(entry, ranked);
-      return {
-        entry,
-        meta: ADDON_TYPES[entry.type],
-        applicableIndices: new Set(applicable.map((kid) => kid.index)),
-        rankMap: rankAddonKids(applicable),
-      };
-    });
-
     let addonTotal = 0;
 
     const kidRows = ranked.map((kid) => {
       const mainRow = `
         <tr>
           <td class="child-cell">Child ${kid.index}</td>
-          <td data-label="Schedule">${kid.days} days &middot; ${kid.pickupLabel}</td>
+          <td data-label="Schedule">${scheduleLabel(kid.days, kid.pickupLabel)}</td>
           ${anyDiscount ? `<td class="num money" data-label="Base cost">${currency(kid.base)}</td>` : ''}
-          ${anyDiscount ? `<td data-label="Discount">${kid.discountPct === 0
+          ${anyDiscount ? `<td data-label="Discount">${kid.base === 0 ? '' : kid.discountPct === 0
             ? '<span class="pill full">Full price</span>'
             : `<span class="pill save">${kid.discountPct}% off</span>`}</td>` : ''}
           <td class="num money money-strong" data-label="Cost">${currency(kid.cost)}</td>
@@ -1229,7 +1252,11 @@
         const base = meta.hasCount ? `${entry.count} x ${label}` : label;
         return meta.hasDescription && entry.description ? `${base} (${entry.description})` : base;
       });
-    const forDates = [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels].join(', ');
+    // Only list the month when someone has regular care; an add-ons-only payment just lists the add-ons.
+    const hasRegularCare = ranked.some((kid) => kid.base > 0);
+    const forDates = (hasRegularCare || addonLabels.length === 0
+      ? [`${BILL_INFO.billMonthName} ${BILL_INFO.billYear}`, ...addonLabels]
+      : addonLabels).join(', ');
     payLink.href = `${PAY_URL_BASE}&total=${payableTotal.toFixed(2)}&cf_For_Dates=${encodeURIComponent(forDates)}`;
 
     saveState();
